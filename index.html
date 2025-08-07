@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic AI Claims Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-pending { background-color: #4B5563; color: #F9FAFB; }
+        .status-approved { background-color: #10B981; color: #F9FAFB; }
+        .status-rejected { background-color: #EF4444; color: #F9FAFB; }
+        .status-review { background-color: #F59E0B; color: #1F2937; }
+
+        .stage-processing { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-black p-6 flex flex-col">
+            <h1 class="text-2xl font-bold text-white mb-8">Aura<span class="text-purple-400">Claims</span></h1>
+            <nav class="flex flex-col space-y-2">
+                <a href="#" class="bg-gray-800 text-white flex items-center p-3 rounded-lg">
+                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    Dashboard
+                </a>
+                <a href="#" class="text-gray-400 hover:bg-gray-800 hover:text-white flex items-center p-3 rounded-lg">
+                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    All Claims
+                </a>
+                 <a href="#" class="text-gray-400 hover:bg-gray-800 hover:text-white flex items-center p-3 rounded-lg">
+                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9 6 9-6"></path></svg>
+                    Notifications
+                </a>
+            </nav>
+            <div class="mt-auto">
+                <a href="#" class="text-gray-400 hover:bg-gray-800 hover:text-white flex items-center p-3 rounded-lg">
+                     <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex overflow-hidden">
+            <!-- Claims List -->
+            <div id="claims-list-container" class="w-1/3 bg-gray-800 border-r border-gray-700 overflow-y-auto">
+                <div class="p-4">
+                    <h2 class="text-xl font-bold mb-4">Incoming Claims Queue</h2>
+                    <div id="claims-list" class="space-y-3">
+                        <!-- Claims will be injected here by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Claim Details -->
+            <div id="claim-details-container" class="flex-1 p-8 overflow-y-auto">
+                <!-- Placeholder -->
+                <div id="placeholder" class="h-full flex flex-col items-center justify-center text-center text-gray-500">
+                    <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+                    <h3 class="text-lg font-semibold">Select a claim to view details</h3>
+                    <p>The AI Agent is standing by.</p>
+                </div>
+                <!-- Details View (hidden by default) -->
+                <div id="details-view" class="hidden">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h2 class="text-3xl font-extrabold text-white" id="claim-id-header"></h2>
+                            <p class="text-gray-400" id="claimant-name"></p>
+                        </div>
+                        <div id="claim-status-badge" class="status-badge"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- AI Agent Panel -->
+                        <div class="lg:col-span-2 bg-black p-6 rounded-lg">
+                            <h3 class="font-bold text-lg mb-4">Agentic AI Processing</h3>
+                            <div class="mb-6">
+                                <button id="run-agent-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Run AI Agent
+                                </button>
+                            </div>
+                            <div id="agent-stages" class="space-y-4">
+                                <!-- Stages will be injected here -->
+                            </div>
+                        </div>
+                        <!-- Summary Panel -->
+                        <div class="bg-gray-800 p-6 rounded-lg">
+                             <h3 class="font-bold text-lg mb-4">Claim Summary</h3>
+                             <div class="space-y-3 text-sm">
+                                 <div>
+                                     <p class="text-gray-400">Claim Amount</p>
+                                     <p class="font-semibold text-white" id="claim-amount"></p>
+                                 </div>
+                                 <div>
+                                     <p class="text-gray-400">Policy Type</p>
+                                     <p class="font-semibold text-white" id="policy-type"></p>
+                                 </div>
+                                 <div>
+                                     <p class="text-gray-400">Date of Incident</p>
+                                     <p class="font-semibold text-white" id="incident-date"></p>
+                                 </div>
+                                 <div id="ai-summary-section" class="pt-4 border-t border-gray-700 hidden">
+                                     <p class="text-gray-400 font-bold">AI Findings</p>
+                                     <p class="font-semibold text-white" id="ai-summary-text"></p>
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const mockClaims = [
+            { id: 'CL-84572', name: 'Rohan Sharma', amount: '₹75,000', policy: 'Family Health+', date: '2025-07-22', status: 'Pending' },
+            { id: 'CL-84571', name: 'Priya Patel', amount: '₹1,20,000', policy: 'Critical Care Max', date: '2025-07-20', status: 'Approved' },
+            { id: 'CL-84569', name: 'Anjali Verma', amount: '₹35,000', policy: 'Personal Accident', date: '2025-07-18', status: 'Pending' },
+            { id: 'CL-84568', name: 'Vikram Singh', amount: '₹2,50,000', policy: 'Comprehensive+', date: '2025-07-15', status: 'Rejected' },
+            { id: 'CL-84565', name: 'Sunita Gupta', amount: '₹95,000', policy: 'Family Health+', date: '2025-07-11', status: 'Pending' },
+        ];
+
+        const claimsListEl = document.getElementById('claims-list');
+        const placeholderEl = document.getElementById('placeholder');
+        const detailsViewEl = document.getElementById('details-view');
+        const runAgentBtn = document.getElementById('run-agent-btn');
+        const agentStagesEl = document.getElementById('agent-stages');
+        const aiSummarySection = document.getElementById('ai-summary-section');
+        const aiSummaryText = document.getElementById('ai-summary-text');
+
+        function renderClaimsList() {
+            claimsListEl.innerHTML = '';
+            mockClaims.forEach(claim => {
+                const claimEl = document.createElement('div');
+                claimEl.className = 'bg-gray-700 p-4 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors';
+                claimEl.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="font-bold text-white">${claim.id}</p>
+                        <div class="status-badge status-${claim.status.toLowerCase().replace(' ', '-')}">${claim.status}</div>
+                    </div>
+                    <p class="text-sm text-gray-300">${claim.name}</p>
+                    <p class="text-sm text-gray-400">${claim.amount}</p>
+                `;
+                claimEl.addEventListener('click', () => showClaimDetails(claim));
+                claimsListEl.appendChild(claimEl);
+            });
+        }
+
+        function showClaimDetails(claim) {
+            placeholderEl.classList.add('hidden');
+            detailsViewEl.classList.remove('hidden');
+
+            document.getElementById('claim-id-header').textContent = claim.id;
+            document.getElementById('claimant-name').textContent = `Claimant: ${claim.name}`;
+            document.getElementById('claim-amount').textContent = claim.amount;
+            document.getElementById('policy-type').textContent = claim.policy;
+            document.getElementById('incident-date').textContent = claim.date;
+            
+            const statusBadge = document.getElementById('claim-status-badge');
+            statusBadge.textContent = claim.status;
+            statusBadge.className = `status-badge status-${claim.status.toLowerCase().replace(' ', '-')}`;
+            
+            runAgentBtn.disabled = claim.status !== 'Pending';
+            runAgentBtn.onclick = () => runAgent(claim);
+
+            resetAgentUI();
+        }
+        
+        function resetAgentUI() {
+            agentStagesEl.innerHTML = '';
+            aiSummarySection.classList.add('hidden');
+            aiSummaryText.textContent = '';
+        }
+
+        function runAgent(claim) {
+            runAgentBtn.disabled = true;
+            resetAgentUI();
+
+            const stages = [
+                { name: 'Identity Check', detail: 'Verifying Aadhar ID via DigiLocker API...', delay: 1500, successChance: 0.95 },
+                { name: 'Hygiene Check', detail: 'Cross-referencing policy date, SOPs, and hospital rating...', delay: 2000, successChance: 0.90 },
+                { name: 'Verification', detail: 'Analyzing medical records and expenses against historical data...', delay: 2500, successChance: 0.90 },
+                { name: 'Coverage & Fraud Evaluation', detail: 'Estimating final amount and running fraud detection algorithms...', delay: 2000, successChance: 1 }
+            ];
+
+            let cumulativeDelay = 0;
+            let failed = false;
+
+            stages.forEach((stage, index) => {
+                cumulativeDelay += stage.delay;
+                
+                setTimeout(() => {
+                    if (failed) return;
+
+                    // Update previous stage to success
+                    if (index > 0) {
+                        const prevStageEl = document.getElementById(`stage-${index - 1}`);
+                        prevStageEl.querySelector('.status-icon').innerHTML = getIcon('success');
+                        prevStageEl.classList.remove('stage-processing');
+                    }
+                    
+                    // Add current stage
+                    const stageEl = document.createElement('div');
+                    stageEl.id = `stage-${index}`;
+                    stageEl.className = 'bg-gray-800 p-4 rounded-lg flex items-center stage-processing';
+                    stageEl.innerHTML = `
+                        <div class="status-icon w-10 h-10 flex-shrink-0 mr-4">${getIcon('processing')}</div>
+                        <div>
+                            <p class="font-bold text-white">${stage.name}</p>
+                            <p class="text-sm text-gray-400">${stage.detail}</p>
+                        </div>
+                    `;
+                    agentStagesEl.appendChild(stageEl);
+
+                    // Simulate success or failure
+                    const isSuccess = Math.random() < stage.successChance;
+                    if (!isSuccess && index < stages.length -1) { // Don't fail on the last step
+                        failed = true;
+                        setTimeout(() => {
+                            stageEl.querySelector('.status-icon').innerHTML = getIcon('fail');
+                            stageEl.classList.remove('stage-processing');
+                            updateClaimStatus(claim.id, 'Flagged for Review', `Failed at ${stage.name}. Manual intervention required.`);
+                        }, 1000);
+                    }
+
+                    // Handle final stage
+                    if (index === stages.length - 1 && !failed) {
+                         setTimeout(() => {
+                            stageEl.querySelector('.status-icon').innerHTML = getIcon('success');
+                            stageEl.classList.remove('stage-processing');
+                            updateClaimStatus(claim.id, 'Approved', 'All checks passed. Claim approved for estimated amount.');
+                        }, 1000);
+                    }
+
+                }, cumulativeDelay - stage.delay);
+            });
+        }
+        
+        function updateClaimStatus(claimId, newStatus, summary) {
+            const claim = mockClaims.find(c => c.id === claimId);
+            if(claim) {
+                claim.status = newStatus;
+            }
+            renderClaimsList();
+            
+            const statusBadge = document.getElementById('claim-status-badge');
+            statusBadge.textContent = newStatus;
+            statusBadge.className = `status-badge status-${newStatus.toLowerCase().replace(' ', '-')}`;
+            
+            aiSummarySection.classList.remove('hidden');
+            aiSummaryText.textContent = summary;
+        }
+
+        function getIcon(status) {
+            const icons = {
+                processing: `<svg class="w-full h-full text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`,
+                success: `<svg class="w-full h-full text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+                fail: `<svg class="w-full h-full text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
+            };
+            return icons[status];
+        }
+
+        // Initial Render
+        renderClaimsList();
+    </script>
+</body>
+</html>
