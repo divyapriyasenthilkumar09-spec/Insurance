@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agentic AI Claims Dashboard</title>
+    <title>Hall of Claims Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,12 +23,32 @@
         .status-pending { background-color: #4B5563; color: #F9FAFB; }
         .status-approved { background-color: #10B981; color: #F9FAFB; }
         .status-rejected { background-color: #EF4444; color: #F9FAFB; }
-        .status-review { background-color: #F59E0B; color: #1F2937; }
+        .status-flagged-for-review { background-color: #F59E0B; color: #1F2937; }
 
         .stage-processing { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: .5; }
+        }
+        
+        #hailey-face .eye {
+            animation: blink 4s infinite;
+        }
+        @keyframes blink {
+            0%, 95%, 100% { transform: scaleY(1); }
+            97.5% { transform: scaleY(0.1); }
+        }
+        
+        /* Reward Popup Animation */
+        .popup-hidden {
+            transform: scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .popup-visible {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: auto;
         }
     </style>
 </head>
@@ -36,7 +57,7 @@
     <div class="flex h-screen">
         <!-- Sidebar -->
         <aside class="w-64 bg-black p-6 flex flex-col">
-            <h1 class="text-2xl font-bold text-white mb-8">Hall of<span class="text-purple-400"> Claims</span></h1>
+            <h1 class="text-2xl font-bold text-white mb-8">Hall of <span class="text-purple-400">Claims</span></h1>
             <nav class="flex flex-col space-y-2">
                 <a href="#" class="bg-gray-800 text-white flex items-center p-3 rounded-lg">
                     <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -92,15 +113,20 @@
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <!-- AI Agent Panel -->
                         <div class="lg:col-span-2 bg-black p-6 rounded-lg">
-                            <h3 class="font-bold text-lg mb-4">Agentic AI Processing</h3>
-                            <div class="mb-6">
-                                <button id="run-agent-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    Run AI Agent
-                                </button>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-lg">Agentic AI Processing</h3>
+                                <div id="timer-container" class="hidden text-sm font-mono bg-gray-700 text-white px-3 py-1 rounded-md">
+                                    <span id="timer">0.0s</span>
+                                </div>
                             </div>
                             <div id="agent-stages" class="space-y-4">
                                 <!-- Stages will be injected here -->
+                            </div>
+                            <div id="agent-communication-log" class="mt-6 border-t border-gray-700 pt-4 hidden">
+                                <h4 class="font-bold text-md mb-2">Agent Communications Log</h4>
+                                <div id="communication-entries" class="space-y-2">
+                                    <!-- Notifications will be injected here -->
+                                </div>
                             </div>
                         </div>
                         <!-- Summary Panel -->
@@ -123,6 +149,10 @@
                                      <p class="text-gray-400 font-bold">AI Findings</p>
                                      <p class="font-semibold text-white" id="ai-summary-text"></p>
                                  </div>
+                                 <div id="claim-notes-section" class="pt-4 border-t border-gray-700 hidden">
+                                     <p class="text-gray-400 font-bold">Adjuster Notes</p>
+                                     <p class="font-semibold text-white whitespace-pre-wrap" id="claim-notes-text"></p>
+                                 </div>
                              </div>
                         </div>
                     </div>
@@ -131,22 +161,93 @@
         </main>
     </div>
 
+    <!-- Chatbot -->
+    <div id="chatbot-container" class="fixed bottom-8 right-8 z-10">
+        <button id="chatbot-toggle-btn" class="bg-purple-600 hover:bg-purple-700 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center">
+            <svg id="chat-icon" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            <svg id="close-icon" class="w-8 h-8 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div id="chatbot-window" class="hidden absolute bottom-20 right-0 w-80 h-[500px] bg-gray-800 rounded-lg shadow-2xl flex flex-col">
+            <div class="bg-black p-4 rounded-t-lg flex items-center space-x-3">
+                <div id="hailey-face" class="w-12 h-12 bg-purple-400 rounded-full flex-shrink-0">
+                    <svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="45" fill="#A78BFA"/>
+                        <circle class="eye" cx="35" cy="45" r="5" fill="white"/>
+                        <circle class="eye" cx="65" cy="45" r="5" fill="white"/>
+                        <path d="M 35 65 Q 50 75 65 65" stroke="white" stroke-width="3" fill="none"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white">Hailey - Your AI Assistant</h3>
+                </div>
+            </div>
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4">
+                <!-- Chat messages will appear here -->
+            </div>
+            <form id="chat-form" class="p-4 bg-black rounded-b-lg">
+                <div class="flex">
+                    <input type="text" id="chat-input" placeholder="e.g., add note to CL-84572..." class="flex-1 bg-gray-700 text-white rounded-l-lg p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-r-lg">Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reward Popup -->
+    <div id="reward-popup-overlay" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-20 popup-hidden transition-all duration-300">
+        <div class="bg-white text-gray-800 p-8 rounded-2xl shadow-2xl text-center transform transition-all duration-300">
+            <div class="text-6xl mb-4">🎉</div>
+            <h2 class="text-3xl font-extrabold text-purple-600">Claim Processed!</h2>
+            <p class="text-gray-600 mt-2">The AI Agent successfully processed the claim.</p>
+            <div class="mt-4 bg-gray-100 p-4 rounded-lg">
+                <p class="text-sm text-gray-500">Total Processing Time</p>
+                <p id="popup-time" class="text-2xl font-bold"></p>
+            </div>
+            <button id="close-popup-btn" class="mt-6 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg">Close</button>
+        </div>
+    </div>
+
     <script>
         const mockClaims = [
-            { id: 'CL-84572', name: 'Rohan Sharma', amount: '₹75,000', policy: 'Family Health+', date: '2025-07-22', status: 'Pending' },
-            { id: 'CL-84571', name: 'Priya Patel', amount: '₹1,20,000', policy: 'Critical Care Max', date: '2025-07-20', status: 'Approved' },
-            { id: 'CL-84569', name: 'Anjali Verma', amount: '₹35,000', policy: 'Personal Accident', date: '2025-07-18', status: 'Pending' },
-            { id: 'CL-84568', name: 'Vikram Singh', amount: '₹2,50,000', policy: 'Comprehensive+', date: '2025-07-15', status: 'Rejected' },
-            { id: 'CL-84565', name: 'Sunita Gupta', amount: '₹95,000', policy: 'Family Health+', date: '2025-07-11', status: 'Pending' },
+            { id: 'CL-84574', name: 'Ravi Mehra', amount: '₹1,15,000', policy: 'Family Health+', date: '2025-07-24', status: 'Pending', note: '', flagReason: 'Suspected fraudulent activity', isComplex: false },
+            { id: 'CL-84573', name: 'Kavita Rao', amount: '₹4,50,000', policy: 'Corporate Platinum', date: '2025-07-23', status: 'Pending', note: 'Complex case: multiple procedures.', flagReason: null, isComplex: true },
+            { id: 'CL-84572', name: 'Rohan Sharma', amount: '₹75,000', policy: 'Family Health+', date: '2025-07-22', status: 'Pending', note: '', flagReason: null, isComplex: false },
+            { id: 'CL-84571', name: 'Priya Patel', amount: '₹1,20,000', policy: 'Critical Care Max', date: '2025-07-20', status: 'Approved', note: 'Approved based on critical illness rider.', flagReason: null, isComplex: false },
+            { id: 'CL-84569', name: 'Anjali Verma', amount: '₹35,000', policy: 'Personal Accident', date: '2025-07-18', status: 'Pending', note: '', flagReason: 'Identity not matched', isComplex: false },
+            { id: 'CL-84568', name: 'Vikram Singh', amount: '₹2,50,000', policy: 'Comprehensive+', date: '2025-07-15', status: 'Rejected', note: 'Rejected due to policy exclusion clause for pre-existing conditions.', flagReason: null, isComplex: false },
+            { id: 'CL-84565', name: 'Sunita Gupta', amount: '₹95,000', policy: 'Family Health+', date: '2025-07-11', status: 'Pending', note: '', flagReason: 'Policy expired', isComplex: false },
+            { id: 'CL-84564', name: 'Amit Kumar', amount: '₹50,000', policy: 'Personal Accident', date: '2025-07-10', status: 'Pending', note: '', flagReason: 'Blacklisted hospital', isComplex: false },
         ];
+        
+        let currentClaim = null;
+        let timerInterval = null;
 
         const claimsListEl = document.getElementById('claims-list');
         const placeholderEl = document.getElementById('placeholder');
         const detailsViewEl = document.getElementById('details-view');
-        const runAgentBtn = document.getElementById('run-agent-btn');
         const agentStagesEl = document.getElementById('agent-stages');
         const aiSummarySection = document.getElementById('ai-summary-section');
         const aiSummaryText = document.getElementById('ai-summary-text');
+        const agentCommLogEl = document.getElementById('agent-communication-log');
+        const commEntriesEl = document.getElementById('communication-entries');
+        const claimNotesSection = document.getElementById('claim-notes-section');
+        const claimNotesText = document.getElementById('claim-notes-text');
+        const timerContainer = document.getElementById('timer-container');
+        const timerEl = document.getElementById('timer');
+
+        // Chatbot elements
+        const chatbotToggleBtn = document.getElementById('chatbot-toggle-btn');
+        const chatbotWindow = document.getElementById('chatbot-window');
+        const chatIcon = document.getElementById('chat-icon');
+        const closeIcon = document.getElementById('close-icon');
+        const chatMessagesEl = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+
+        // Popup elements
+        const rewardPopupOverlay = document.getElementById('reward-popup-overlay');
+        const popupTimeEl = document.getElementById('popup-time');
+        const closePopupBtn = document.getElementById('close-popup-btn');
 
         function renderClaimsList() {
             claimsListEl.innerHTML = '';
@@ -156,7 +257,7 @@
                 claimEl.innerHTML = `
                     <div class="flex justify-between items-center mb-1">
                         <p class="font-bold text-white">${claim.id}</p>
-                        <div class="status-badge status-${claim.status.toLowerCase().replace(' ', '-')}">${claim.status}</div>
+                        <div class="status-badge status-${claim.status.toLowerCase().replace(/\s+/g, '-')}">${claim.status}</div>
                     </div>
                     <p class="text-sm text-gray-300">${claim.name}</p>
                     <p class="text-sm text-gray-400">${claim.amount}</p>
@@ -167,6 +268,7 @@
         }
 
         function showClaimDetails(claim) {
+            currentClaim = claim;
             placeholderEl.classList.add('hidden');
             detailsViewEl.classList.remove('hidden');
 
@@ -178,29 +280,53 @@
             
             const statusBadge = document.getElementById('claim-status-badge');
             statusBadge.textContent = claim.status;
-            statusBadge.className = `status-badge status-${claim.status.toLowerCase().replace(' ', '-')}`;
+            statusBadge.className = `status-badge status-${claim.status.toLowerCase().replace(/\s+/g, '-')}`;
             
-            runAgentBtn.disabled = claim.status !== 'Pending';
-            runAgentBtn.onclick = () => runAgent(claim);
-
+            updateNotesUI(claim);
             resetAgentUI();
+
+            if (claim.status === 'Pending') {
+                runAgent(claim);
+            }
+        }
+        
+        function updateNotesUI(claim) {
+            if (claim.note) {
+                claimNotesSection.classList.remove('hidden');
+                claimNotesText.textContent = claim.note;
+            } else {
+                claimNotesSection.classList.add('hidden');
+                claimNotesText.textContent = '';
+            }
         }
         
         function resetAgentUI() {
             agentStagesEl.innerHTML = '';
             aiSummarySection.classList.add('hidden');
             aiSummaryText.textContent = '';
+            agentCommLogEl.classList.add('hidden');
+            commEntriesEl.innerHTML = '';
+            timerContainer.classList.add('hidden');
+            clearInterval(timerInterval);
         }
 
         function runAgent(claim) {
-            runAgentBtn.disabled = true;
             resetAgentUI();
+            
+            const startTime = Date.now();
+            timerContainer.classList.remove('hidden');
+            timerInterval = setInterval(() => {
+                const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                timerEl.textContent = `${elapsedTime}s`;
+            }, 100);
+
+            const baseDelay = claim.isComplex ? 2 : 1;
 
             const stages = [
-                { name: 'Identity Check', detail: 'Verifying Aadhar ID via DigiLocker API...', delay: 1500, successChance: 0.95 },
-                { name: 'Hygiene Check', detail: 'Cross-referencing policy date, SOPs, and hospital rating...', delay: 2000, successChance: 0.90 },
-                { name: 'Verification', detail: 'Analyzing medical records and expenses against historical data...', delay: 2500, successChance: 0.90 },
-                { name: 'Coverage & Fraud Evaluation', detail: 'Estimating final amount and running fraud detection algorithms...', delay: 2000, successChance: 1 }
+                { name: 'Identity Check', detail: 'Verifying Aadhar ID via DigiLocker API...', delay: 1500 * baseDelay },
+                { name: 'Hygiene Check', detail: 'Cross-referencing policy date, SOPs, and hospital rating...', delay: 2000 * baseDelay },
+                { name: 'Verification', detail: 'Analyzing medical records and expenses against historical data...', delay: 2500 * baseDelay },
+                { name: 'Coverage & Fraud Evaluation', detail: 'Estimating final amount and running fraud detection algorithms...', delay: 2000 * baseDelay }
             ];
 
             let cumulativeDelay = 0;
@@ -212,14 +338,14 @@
                 setTimeout(() => {
                     if (failed) return;
 
-                    // Update previous stage to success
                     if (index > 0) {
                         const prevStageEl = document.getElementById(`stage-${index - 1}`);
-                        prevStageEl.querySelector('.status-icon').innerHTML = getIcon('success');
-                        prevStageEl.classList.remove('stage-processing');
+                        if(prevStageEl) {
+                            prevStageEl.querySelector('.status-icon').innerHTML = getIcon('success');
+                            prevStageEl.classList.remove('stage-processing');
+                        }
                     }
                     
-                    // Add current stage
                     const stageEl = document.createElement('div');
                     stageEl.id = `stage-${index}`;
                     stageEl.className = 'bg-gray-800 p-4 rounded-lg flex items-center stage-processing';
@@ -231,24 +357,44 @@
                         </div>
                     `;
                     agentStagesEl.appendChild(stageEl);
+                    
+                    let isSuccess = true;
+                    let failureReason = '';
+                    if (claim.flagReason) {
+                        if (index === 0 && claim.flagReason === 'Identity not matched') {
+                            isSuccess = false;
+                            failureReason = `Failed at Identity Check: ${claim.flagReason}.`;
+                        }
+                        if (index === 1 && (claim.flagReason === 'Policy expired' || claim.flagReason === 'Blacklisted hospital')) {
+                            isSuccess = false;
+                            failureReason = `Failed at Hygiene Check: ${claim.flagReason}.`;
+                        }
+                        if (index === 3 && claim.flagReason === 'Suspected fraudulent activity') {
+                            isSuccess = false;
+                            failureReason = `Flagged for potential fraud: Inconsistent billing codes and treatment timeline.`;
+                        }
+                    }
 
-                    // Simulate success or failure
-                    const isSuccess = Math.random() < stage.successChance;
-                    if (!isSuccess && index < stages.length -1) { // Don't fail on the last step
+                    if (!isSuccess) {
                         failed = true;
+                        clearInterval(timerInterval);
                         setTimeout(() => {
                             stageEl.querySelector('.status-icon').innerHTML = getIcon('fail');
                             stageEl.classList.remove('stage-processing');
-                            updateClaimStatus(claim.id, 'Flagged for Review', `Failed at ${stage.name}. Manual intervention required.`);
+                            updateClaimStatus(claim.id, 'Flagged for Review', failureReason);
                         }, 1000);
                     }
 
-                    // Handle final stage
                     if (index === stages.length - 1 && !failed) {
+                         clearInterval(timerInterval);
+                         const endTime = Date.now();
+                         const duration = ((endTime - startTime) / 1000).toFixed(1);
+                         timerEl.textContent = `${duration}s`;
                          setTimeout(() => {
                             stageEl.querySelector('.status-icon').innerHTML = getIcon('success');
                             stageEl.classList.remove('stage-processing');
                             updateClaimStatus(claim.id, 'Approved', 'All checks passed. Claim approved for estimated amount.');
+                            showRewardPopup(duration);
                         }, 1000);
                     }
 
@@ -265,10 +411,55 @@
             
             const statusBadge = document.getElementById('claim-status-badge');
             statusBadge.textContent = newStatus;
-            statusBadge.className = `status-badge status-${newStatus.toLowerCase().replace(' ', '-')}`;
+            statusBadge.className = `status-badge status-${newStatus.toLowerCase().replace(/\s+/g, '-')}`;
             
             aiSummarySection.classList.remove('hidden');
             aiSummaryText.textContent = summary;
+            
+            addCommunicationLog(newStatus, summary);
+        }
+
+        function addCommunicationLog(status, summary) {
+            agentCommLogEl.classList.remove('hidden');
+            commEntriesEl.innerHTML = ''; // Clear previous logs
+            
+            let icon = '';
+            let message = '';
+            let paymentMessage = '';
+            let assignmentMessage = '';
+
+            if (status === 'Approved') {
+                icon = `<svg class="w-5 h-5 mr-3 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>`;
+                message = `<strong>Action:</strong> Sent approval email to claimant. <br> <strong>Summary:</strong> ${summary}`;
+                paymentMessage = `<strong>Action:</strong> Sent payment request to finance.`;
+            } else if (status === 'Flagged for Review') {
+                icon = `<svg class="w-5 h-5 mr-3 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>`;
+                message = `<strong>Action:</strong> Sent status update message to claimant. <br> <strong>Reason:</strong> ${summary}`;
+                if (summary.toLowerCase().includes('fraud')) {
+                    assignmentMessage = `<strong>Action:</strong> Assigned to Fraud Investigation Unit.`;
+                } else {
+                    assignmentMessage = `<strong>Action:</strong> Assigned to Internal Comms for review.`;
+                }
+            }
+
+            if (message) {
+                 const entryEl = document.createElement('div');
+                 entryEl.className = 'bg-gray-800 p-3 rounded-lg flex items-start text-sm';
+                 entryEl.innerHTML = `${icon}<div>${message}</div>`;
+                 commEntriesEl.appendChild(entryEl);
+            }
+            if (paymentMessage) {
+                 const paymentEl = document.createElement('div');
+                 paymentEl.className = 'bg-gray-800 p-3 rounded-lg flex items-start text-sm';
+                 paymentEl.innerHTML = `<svg class="w-5 h-5 mr-3 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg><div>${paymentMessage}</div>`;
+                 commEntriesEl.appendChild(paymentEl);
+            }
+            if (assignmentMessage) {
+                 const assignmentEl = document.createElement('div');
+                 assignmentEl.className = 'bg-gray-800 p-3 rounded-lg flex items-start text-sm';
+                 assignmentEl.innerHTML = `<svg class="w-5 h-5 mr-3 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg><div>${assignmentMessage}</div>`;
+                 commEntriesEl.appendChild(assignmentEl);
+            }
         }
 
         function getIcon(status) {
@@ -280,11 +471,123 @@
             return icons[status];
         }
 
+        // --- Chatbot Logic ---
+        const synth = window.speechSynthesis;
+
+        chatbotToggleBtn.addEventListener('click', () => {
+            chatbotWindow.classList.toggle('hidden');
+            chatIcon.classList.toggle('hidden');
+            closeIcon.classList.toggle('hidden');
+            if (!chatbotWindow.classList.contains('hidden')) {
+                const welcomeMessage = "Hello! I'm Hailey, your AI assistant. I can summarize claims, check for flags, or add notes. How can I help?";
+                addBotMessage(welcomeMessage);
+                speak(welcomeMessage);
+            } else {
+                synth.cancel(); // Stop speech when closing chat
+            }
+        });
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const userInput = chatInput.value.trim();
+            if (userInput) {
+                addUserMessage(userInput);
+                getBotResponse(userInput);
+                chatInput.value = '';
+            }
+        });
+
+        function addUserMessage(message) {
+            const messageEl = document.createElement('div');
+            messageEl.className = 'flex justify-end';
+            messageEl.innerHTML = `<div class="bg-purple-600 text-white p-2 rounded-lg max-w-xs">${message}</div>`;
+            chatMessagesEl.appendChild(messageEl);
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        }
+
+        function addBotMessage(message) {
+            const messageEl = document.createElement('div');
+            messageEl.className = 'flex justify-start';
+            messageEl.innerHTML = `<div class="bg-gray-700 text-gray-200 p-2 rounded-lg max-w-xs">${message}</div>`;
+            chatMessagesEl.appendChild(messageEl);
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+        }
+        
+        function speak(text) {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+            const utterance = new SpeechSynthesisUtterance(text.replace(/<[^>]*>?/gm, '')); // Strip HTML tags for speech
+            utterance.pitch = 1.1;
+            utterance.rate = 1;
+            synth.speak(utterance);
+        }
+
+        function getBotResponse(input) {
+            const lowerInput = input.toLowerCase();
+            let response = "I'm not sure how to help with that. I can summarize claims, check for flags, or add notes.";
+
+            if (lowerInput.startsWith('add note to')) {
+                const parts = input.split(':');
+                if (parts.length > 1) {
+                    const claimIdMatch = parts[0].match(/CL-\d+/i);
+                    if (claimIdMatch) {
+                        const claimId = claimIdMatch[0].toUpperCase();
+                        const noteContent = parts.slice(1).join(':').trim();
+                        const claimToUpdate = mockClaims.find(c => c.id === claimId);
+                        if (claimToUpdate) {
+                            claimToUpdate.note = noteContent;
+                            response = `OK. I've added the note to ${claimId}.`;
+                            if (currentClaim && currentClaim.id === claimId) {
+                                updateNotesUI(claimToUpdate);
+                            }
+                        } else {
+                            response = `Sorry, I couldn't find a claim with the ID ${claimId}.`;
+                        }
+                    } else {
+                         response = "Please specify a valid claim ID (e.g., CL-12345) when adding a note.";
+                    }
+                } else {
+                    response = "To add a note, please use the format: add note to [Claim ID]: [Your note]";
+                }
+            } else if (lowerInput.includes('summarize')) {
+                 if (currentClaim) {
+                    response = `Claim ${currentClaim.id} is for ${currentClaim.name} with an amount of ${currentClaim.amount}. The current status is ${currentClaim.status}.`;
+                } else {
+                    response = "Please select a claim from the list on the left first, so I can summarize it for you.";
+                }
+            } else if (lowerInput.includes('flag') || lowerInput.includes('risk')) {
+                 if (currentClaim) {
+                    if(currentClaim.flagReason) {
+                        response = `Yes, claim ${currentClaim.id} was flagged for review. The reason is: ${currentClaim.flagReason}.`;
+                    } else {
+                        response = `The AI agent found no major fraud flags for ${currentClaim.id}. The risk score is low.`;
+                    }
+                } else {
+                    response = "Please select a claim first so I can check its risk profile.";
+                }
+            }
+            
+            setTimeout(() => {
+                addBotMessage(response);
+                speak(response);
+            }, 1000);
+        }
+
+        // --- Popup Logic ---
+        function showRewardPopup(duration) {
+            popupTimeEl.textContent = `${duration}s`;
+            rewardPopupOverlay.classList.remove('popup-hidden');
+            rewardPopupOverlay.classList.add('popup-visible');
+        }
+
+        closePopupBtn.addEventListener('click', () => {
+            rewardPopupOverlay.classList.remove('popup-visible');
+            rewardPopupOverlay.classList.add('popup-hidden');
+        });
+
         // Initial Render
         renderClaimsList();
     </script>
 </body>
 </html>
-
-
-
